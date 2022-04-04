@@ -1,4 +1,4 @@
-# Update-Server
+# Modded MC Updater
 A simple program to update your modded minecraft server if it uses the serverstarter.jar using the SSH.NET library
 
 # Instructions

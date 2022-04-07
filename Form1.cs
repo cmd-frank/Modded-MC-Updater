@@ -15,7 +15,7 @@ namespace Update_Server
 
         private const string MinecraftDirectory = "";                                   // Minecraft Directory (EX: /games/Minecraft/)
         private const string ServerUpdateJarFile = "serverstarter-2.2.0.jar";           // Server Updater Jar Filename
-        private const string UpdateCommand = "java -jar ";                              // Update command
+        private const string UpdateCommand = "java -jar";                              // Update command
 
         private SshClient _ssh;
         private SftpClient _sftp;
@@ -58,6 +58,16 @@ namespace Update_Server
                 return;
             }
 
+            // Lets upload the file and make sure it was successfully before updating the server
+            if (UploadFile())
+            {
+                // Lets update the server
+                UpdateServer();
+            }
+        }
+
+        private bool UploadFile()
+        {
             // Why not try?
             try
             {
@@ -71,7 +81,7 @@ namespace Update_Server
                 string uploadFile = file.FullName;
 
                 // if for some reason the Sftp client isn't connected, return - Maybe we can catch the error?
-                if (!_sftp.IsConnected) return;
+                if (!_sftp.IsConnected) return false;
 
                 // Lets the user know we connected
                 richTextBox1.AppendText("Successfully connected\n");
@@ -93,7 +103,7 @@ namespace Update_Server
                 {
                     richTextBox1.AppendText("Error, file was not uploaded. Try again.\n");
                     _sftp.Disconnect();
-                    return;
+                    return false;
                 }
             }
             catch (Exception ex)
@@ -101,11 +111,10 @@ namespace Update_Server
                 // Maybe we can catch the errors and we disconnect the Sftp client just in case
                 MessageBox.Show("Error: " + ex, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 _sftp.Disconnect();
-                return;
+                return false;
             }
 
-            // Let update the server now since we uploaded the file
-            UpdateServer();
+            return true;
         }
 
         private void UpdateServer()
@@ -125,7 +134,7 @@ namespace Update_Server
                 richTextBox1.AppendText("Updating server...\nThis will take some time. Please wait...\n");
 
                 // "Moves" into the Minecraft directory and runs the update command. Otherwise, the Server Updater will look for the "config" (Update File) in the user home directory and not the Minecraft one
-                SshCommand sc = _ssh.CreateCommand("cd " + MinecraftDirectory + " && " + UpdateCommand +
+                SshCommand sc = _ssh.CreateCommand("cd " + MinecraftDirectory + " && " + UpdateCommand + " " +
                                                       ServerUpdateJarFile);
                 sc.Execute();
 

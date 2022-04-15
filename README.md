@@ -10,4 +10,4 @@ Run the program, select the .yaml config file and click update
 
 # TODO:
 - Allow the user to set their hostname, port, username, password, Minecraft directory location and serverstarter.jar name in the program itself
-- Show the update results in realtime instead of "freezing" and displaying the information after it's done
+- ~~Show the update results in realtime instead of "freezing" and displaying the information after it's done~~ Completed!

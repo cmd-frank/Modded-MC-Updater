@@ -1,7 +1,9 @@
 ﻿using Renci.SshNet;
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Update_Server
@@ -13,7 +15,7 @@ namespace Update_Server
         private const string UserName = "";             // Username
         private const string Password = "";             // Password
 
-        private const string MinecraftDirectory = "";                                   // Minecraft Directory (EX: /games/Minecraft/)
+        private const string MinecraftDirectory = "";                                   // Minecraft Directory (EX: games/Minecraft/)
         private const string ServerUpdateJarFile = "serverstarter-2.2.0.jar";           // Server Updater Jar Filename
         private const string UpdateCommand = "java -jar";                              // Update command
 
@@ -61,8 +63,10 @@ namespace Update_Server
             // Lets upload the file and make sure it was successfully before updating the server
             if (UploadFile())
             {
-                // Lets update the server
-                UpdateServer();
+                richTextBox1.AppendText("Updating server...\n\n");
+                
+                // Lets update the server in a new thread to prevent "freezing" of the main program and allow real time output
+                new Task(UpdateServer).Start();
             }
         }
 
@@ -84,7 +88,7 @@ namespace Update_Server
                 if (!_sftp.IsConnected) return false;
 
                 // Lets the user know we connected
-                richTextBox1.AppendText("Successfully connected\n");
+                richTextBox1.AppendText("Successfully connected.\n");
                 richTextBox1.AppendText("Uploading file...\n");
 
                 var fileStream = new FileStream(uploadFile, FileMode.Open);
@@ -96,7 +100,7 @@ namespace Update_Server
                 // a simple check to make sure the file was in fact uploaded to the proper location - Sometimes you never know... Then it disconnects the Sftp client
                 if (_sftp.Exists(MinecraftDirectory + "server-setup-config.yaml"))
                 {
-                    richTextBox1.AppendText("File successfully uploaded\n");
+                    richTextBox1.AppendText("File successfully uploaded.\n");
                     _sftp.Disconnect();
                 }
                 else
@@ -130,20 +134,36 @@ namespace Update_Server
                 // If for some reason the SSH client isn't connected, return - Maybe we can catch the error?
                 if (!_ssh.IsConnected) return;
 
-                // Lets the user know we're going to update the server and it WILL take some time
-                richTextBox1.AppendText("Updating server...\nThis will take some time. Please wait...\n");
 
                 // "Moves" into the Minecraft directory and runs the update command. Otherwise, the Server Updater will look for the "config" (Update File) in the user home directory and not the Minecraft one
                 SshCommand sc = _ssh.CreateCommand("cd " + MinecraftDirectory + " && " + UpdateCommand + " " +
-                                                      ServerUpdateJarFile);
-                sc.Execute();
+                                                   ServerUpdateJarFile);
+                var result = sc.BeginExecute();
 
-                // Prints the result but it will take some time since the process takes a bit. TODO: Maybe we can show the result in real time?
-                richTextBox1.AppendText(sc.Result + "\n");
-                richTextBox1.AppendText("Server updated successfully.\n");
+                // Create a new StreamReader for sc's OutputStream with a buffer size of 4096 to make sure it can read the entire output from the updater. Otherwise, it will stop about halfway.
+                using (var reader = new StreamReader(sc.OutputStream, Encoding.UTF8, true, 4096, true))
+                {
+                    // Continues to read and print the real time output until the command is completed or reaches the EOS.
+                    while (!result.IsCompleted || !reader.EndOfStream)
+                    {
+                        string response = reader.ReadLine();
 
-                // Closes the connection
-                richTextBox1.AppendText("Closing connection...");
+                        // Needed to avoid continuous printing of blank lines
+                        if (response != null)
+                        {
+                            // Print the OutputStream to the richTextBox from this new thread
+                            richTextBox1.Invoke(
+                                (MethodInvoker)(() =>
+                                    richTextBox1.AppendText(response + "\n")));
+                        }
+                    }
+                }
+
+                // Let the user know it has completed.
+                richTextBox1.Invoke(
+                    (MethodInvoker) (() =>
+                        richTextBox1.AppendText("\n\nServer update complete.")));
+
                 _ssh.Disconnect();
             }
             catch (Exception ex)
@@ -151,7 +171,6 @@ namespace Update_Server
                 // Maybe we can catch the errors and we disconnect the SSH client just in case
                 MessageBox.Show("Error: " + ex, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 _ssh.Disconnect();
-                return;
             }
         }
     }

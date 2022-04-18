@@ -1,5 +1,5 @@
 # Modded MC Updater
-A simple program to update your modpack for your minecraft server if it uses the serverstarter.jar using the SSH.NET library.
+A simple program to update your modpack for your minecraft server if it uses the serverstarter.jar using the [SSH.NET](https://github.com/sshnet/SSH.NET) library.
 
 I noticed more modpack devs are implementing the serverstarter.jar updater/installer into their pack for ease of installing/updating. I got lazy using ftp clients and running the jar manually, so I created this :)
 
